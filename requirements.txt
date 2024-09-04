@@ -1,0 +1,8 @@
+fastapi[all]
+sqlalchemy
+databases
+asyncpg
+alembic
+pydantic
+uvicorn
+python-dotenv
