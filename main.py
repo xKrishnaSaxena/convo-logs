@@ -9,8 +9,20 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.future import select
 from pydantic import BaseModel,EmailStr
 from datetime import datetime
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from typing import Optional
 
 app = FastAPI()
+
+# Add CORS middleware to allow requests from the frontend
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173"],  # Adjust this to your frontend's URL
+    allow_credentials=True,
+    allow_methods=["*"],  # Allow all HTTP methods
+    allow_headers=["*"],  # Allow all headers
+)
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 # Dependency to get the session
@@ -19,13 +31,13 @@ async def get_session() -> AsyncSession:
         yield session
 
 class QueryCreate(BaseModel):
-    user_id: UUID
-    query_text: str
-    query_type: str
-    session_id: UUID
-    device_type: str
-    location: str = None
-    intent_detected: str
+    user_id: UUID  # Required
+    query_text: str  # Required
+    session_id: UUID  # Required
+    query_type: Optional[str] = None  # Optional
+    device_type: Optional[str] = None  # Optional
+    location: Optional[str] = None  # Optional
+    intent_detected: Optional[str] = None  # Optional
 
 class UserCreate(BaseModel):
     name: str
@@ -57,6 +69,7 @@ async def create_query(query: QueryCreate, session: AsyncSession = Depends(get_s
     await session.refresh(db_query)
     return db_query
 
+
 @app.post("/users/", response_model=UserResponse)  # Use the new UserResponse model
 async def create_user(user: UserCreate, session: AsyncSession = Depends(get_session)):
     # Hash the user's password
@@ -78,3 +91,15 @@ async def create_user(user: UserCreate, session: AsyncSession = Depends(get_sess
         raise HTTPException(status_code=400, detail="Email already registered")
     
     return new_user
+
+@app.get("/queries/{user_id}")
+async def get_user_queries(user_id: UUID, session: AsyncSession = Depends(get_session)):
+    result = await session.execute(select(Query).filter(Query.user_id == user_id))
+    queries = result.scalars().all()
+    return queries
+
+@app.get("/conversations/{session_id}")
+async def get_conversation_by_session(session_id: UUID, session: AsyncSession = Depends(get_session)):
+    result = await session.execute(select(Query).filter(Query.session_id == session_id))
+    conversation = result.scalars().all()
+    return conversation
