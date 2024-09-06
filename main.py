@@ -103,3 +103,18 @@ async def get_conversation_by_session(session_id: UUID, session: AsyncSession = 
     result = await session.execute(select(Query).filter(Query.session_id == session_id))
     conversation = result.scalars().all()
     return conversation
+
+@app.delete("/conversations/{session_id}")
+async def delete_conversation(session_id: UUID, session: AsyncSession = Depends(get_session)):
+    result = await session.execute(select(Query).filter(Query.session_id == session_id))
+    conversation = result.scalars().all()
+    
+    if not conversation:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+    
+    for query in conversation:
+        await session.delete(query)
+    
+    await session.commit()
+    return {"message": "Conversation deleted successfully"}
+
